@@ -1,5 +1,5 @@
+require 'rubygems'
+require 'aws-sdk'
 require "s3sync/version"
+require "s3sync/syncer"
 
-module S3sync
-  # Your code goes here...
-end
