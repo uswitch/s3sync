@@ -1,23 +1,25 @@
 require 'find'
 require 'fileutils'
+require 'syslog/logger'
 
 module S3sync
 
   class Syncer
     def initialize
       @s3 = AWS::S3.new
+      @log = Syslog::Logger.new 'S3sync'
     end
 
     def upload(local_path, s3_url)
       bucket_name, *folders = s3url_to_bucket_folder s3_url
 
-      puts "Uploading files"
-      diff(local_files(local_path), remote_files(bucket_name, folders)).each do |key,item|
+      log "Uploading files"
+      FileDiff::diff(local_files(local_path), remote_files(bucket_name, folders)).each do |key,item|
         s3_key = File.join folders, key
-        puts "#{item[:file]} => s3://#{bucket_name}/#{s3_key}"
+        log "#{item[:file]} => s3://#{bucket_name}/#{s3_key}"
         s3_upload item, bucket_name, s3_key
       end
-      puts "done"
+      log "done"
 
     end
 
@@ -25,17 +27,21 @@ module S3sync
       bucket_name, *folders = s3url_to_bucket_folder s3_location
       destination_folder = File.absolute_path(local_path)
 
-      puts "Downloading"
-      diff(remote_files(bucket_name, folders), local_files(local_path)).each do |key,item|
+      log "Downloading"
+      FileDiff::diff(remote_files(bucket_name, folders), local_files(local_path)).each do |key,item|
         destination_file = File.join destination_folder, key
-        puts "#{item[:file].public_url} => #{destination_file}"
+        log "#{item[:file].public_url} => #{destination_file}"
         s3_download item, destination_file
       end
-      puts "done"
+      log "done"
 
     end
 
   private
+
+    def log(message)
+      puts message
+    end
 
     def ensure_folder_exists(folder)
       FileUtils.mkdir_p(folder) unless File.directory?(folder)
@@ -45,6 +51,10 @@ module S3sync
       FileUtils.touch file, mtime:time
     end
 
+    def last_modified(item)
+      item[:last_modified].call
+    end
+
     def s3_download(item, destination_file)
       ensure_folder_exists File.dirname(destination_file)
 
@@ -52,13 +62,13 @@ module S3sync
         item[:file].read {|chunk| f.write chunk }
       end
 
-      update_last_modified destination_file, item[:last_modified]
+      update_last_modified destination_file, last_modified(item)
     end
 
     def s3_upload(item, bucket, key)
       object = @s3.buckets[bucket].objects[key]
       object.write(:file => item[:file])
-      object.metadata['last_modified'] = item[:last_modified]
+      object.metadata['last_modified'] = last_modified(item)
     end
 
     def s3url_to_bucket_folder(s3_location)
@@ -77,8 +87,8 @@ module S3sync
         
         file_path  = item.match(/#{path}\/?(.*)/)[1]
         results[file_path] = { key:file_path, 
-                               last_modified:File.mtime(item), 
-                               content_length: File.size(item), 
+                               last_modified: ->{File.mtime(item)}, 
+                               content_length: ->{File.size(item)},
                                file: File.absolute_path(item) }
       end
 
@@ -86,24 +96,17 @@ module S3sync
     end
 
     def remote_files(bucket, folders)
-      @s3.buckets[bucket].objects.with_prefix(File.join(folders)).reduce({}) do |result,object|
+      objects = @s3.buckets[bucket].objects.with_prefix(File.join(folders))
+      objects.reduce({}) do |result,object|
         relative_file_name = File.join(object.key.split(/\//).drop folders.length)
-        last_modified      = Time.parse object.metadata['last_modified']
-        content_length     = object.content_length
+        last_modified      = ->{ Time.parse object.metadata['last_modified'] }
+        content_length     = ->{ object.content_length } 
         
-        result.merge relative_file_name => { key:relative_file_name, last_modified:last_modified, content_length:content_length, file:object }
+        result.merge relative_file_name => { key:relative_file_name, 
+                                             last_modified:last_modified, 
+                                             content_length:content_length, 
+                                             file:object }
       end
-    end
-
-    def same_file?(source, dest)
-      return false unless dest
-      return false unless dest[:last_modified] >= source[:last_modified]
-      return false unless dest[:content_length] == source[:content_length]
-      return true
-    end
-
-    def diff(source, destination)
-      source.reject { |key,item| same_file?(item, destination[key]) }
     end
 
   end
