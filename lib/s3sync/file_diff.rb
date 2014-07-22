@@ -9,11 +9,11 @@ module S3sync
   private
 
     def self.last_modified(item)
-      item[:last_modified].call(item)
+      item[:last_modified].call
     end
 
     def self.content_length(item)
-      item[:content_length].call(item)
+      item[:content_length].call
     end
 
     def self.same_file?(source, dest)

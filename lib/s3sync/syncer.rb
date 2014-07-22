@@ -13,7 +13,7 @@ module S3sync
     def upload(local_path, s3_url)
       bucket_name, *folders = s3url_to_bucket_folder s3_url
 
-      log "Uploading files"
+      log "Uploading files" 
       FileDiff::diff(local_files(local_path), remote_files(bucket_name, folders)).each do |key,item|
         s3_key = File.join folders, key
         log "#{item[:file]} => s3://#{bucket_name}/#{s3_key}"
