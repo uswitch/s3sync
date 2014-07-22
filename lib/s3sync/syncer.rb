@@ -51,7 +51,8 @@ module S3sync
   private
 
     def log(message)
-      puts message
+      return puts message if ENV['DEBUG']
+      @log.info message
     end
 
     def ensure_folder_exists(folder)
