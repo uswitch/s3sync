@@ -52,7 +52,7 @@ module S3sync
     end
 
     def last_modified(item)
-      item[:last_modified].call
+      item[:last_modified]
     end
 
     def s3_download(item, destination_file)
@@ -87,8 +87,8 @@ module S3sync
         
         file_path  = item.match(/#{path}\/?(.*)/)[1]
         results[file_path] = { key:file_path, 
-                               last_modified: ->{File.mtime(item)}, 
-                               content_length: ->{File.size(item)},
+                               last_modified: File.mtime(item), 
+                               content_length: File.size(item),
                                file: File.absolute_path(item) }
       end
 
@@ -99,8 +99,8 @@ module S3sync
       objects = @s3.buckets[bucket].objects.with_prefix(File.join(folders))
       objects.reduce({}) do |result,object|
         relative_file_name = File.join(object.key.split(/\//).drop folders.length)
-        last_modified      = ->{ Time.parse object.metadata['last_modified'] }
-        content_length     = ->{ object.content_length } 
+        last_modified      = Time.parse object.metadata['last_modified']
+        content_length     = object.content_length
         
         result.merge relative_file_name => { key:relative_file_name, 
                                              last_modified:last_modified, 
