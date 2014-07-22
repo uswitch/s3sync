@@ -110,8 +110,9 @@ module S3sync
     def remote_files(bucket, folders)
       objects = @s3.buckets[bucket].objects.with_prefix(File.join(folders))
       objects.each do |object|
+        log "Found s3: #{object.public_url}"
         relative_file_name = File.join(object.key.split(/\//).drop folders.length)
-        last_modified      = Time.parse object.metadata['last_modified']
+        last_modified      = Time.parse object.metadata['last_modified'] rescue 0
         content_length     = object.content_length
         item = { key:relative_file_name, last_modified:last_modified, content_length:content_length, file:object }
         yield relative_file_name,item
