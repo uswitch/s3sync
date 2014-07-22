@@ -4,13 +4,13 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 's3sync/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "s3sync"
+  spec.name          = "s3simplesync"
   spec.version       = S3sync::VERSION
   spec.authors       = ["Christian Blunden"]
   spec.email         = ["christian.blunden@gmail.com"]
   spec.description   = %q{Command line tool to sync the files within a folder to S3}
-  spec.summary       = %q{Command line tool to sync the files within a folder to S3}
-  spec.homepage      = ""
+  spec.summary       = %q{Sync a folder with S3 bucket}
+  spec.homepage      = "https://github.com/uswitch/s3sync"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files`.split($/)
