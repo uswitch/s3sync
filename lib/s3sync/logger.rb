@@ -1,7 +1,9 @@
+require 'syslog/logger'
+
 module S3sync
 
   class Logger
-    def initialise
+    def initialize
       @log = Syslog::Logger.new 'S3sync'
     end
 

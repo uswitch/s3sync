@@ -1,13 +1,12 @@
 require 'find'
 require 'fileutils'
-require 'syslog/logger'
 
 module S3sync
 
   class Syncer
     def initialize
       @s3 = AWS::S3.new
-      @log = Logger.new
+      @log = S3sync::Logger.new
     end
 
     def upload(local_path, s3_url)
@@ -27,7 +26,7 @@ module S3sync
         s3_upload item, bucket_name, s3_key
       end
       @log.info "Done"
-    rescue Exception -> e
+    rescue Exception => e
       @log.error e
     end
 
@@ -45,7 +44,7 @@ module S3sync
         s3_download s3, destination_file
       end
       @log.info "Done"
-    rescue Exception -> e
+    rescue Exception => e
       @log.error e
     end
 
@@ -81,7 +80,7 @@ module S3sync
 
     def s3url_to_bucket_folder(s3_location)
       s3_path = s3_location.match(/s3:\/\/(.*)/)[1] rescue nil
-      exit 1 unless s3_path
+      raise 'Invalid S3 url must be s3://bucket form' unless s3_path
 
       s3_path.split /\//
     end
