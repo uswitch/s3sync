@@ -7,15 +7,14 @@ module S3sync
   class Syncer
     def initialize
       @s3 = AWS::S3.new
-      @log = Syslog::Logger.new 'S3sync'
+      @log = Logger.new
     end
 
     def upload(local_path, s3_url)
       bucket_name, *folders = s3url_to_bucket_folder s3_url
 
-      log "Uploading files" 
-      # Yielding the remote s3 files and doing a 2 pass filter
-      # as better performance than computing a diff of 2 complete directory listings
+      @log.info "Uploading files" 
+
       local_files = local_files(local_path)
       remote_files(bucket_name, folders) do |s3|
         source = local_files[s3[:key]]
@@ -24,36 +23,33 @@ module S3sync
 
       local_files.each do |key,item|
         s3_key = File.join folders, key
-        log "#{item[:file]} => s3://#{bucket_name}/#{s3_key}"
+        @log.info "#{item[:file]} => s3://#{bucket_name}/#{s3_key}"
         s3_upload item, bucket_name, s3_key
       end
-      log "done"
-
+      @log.info "Done"
+    rescue Exception -> e
+      @log.error e
     end
 
     def download(s3_location, local_path)
       bucket_name, *folders = s3url_to_bucket_folder s3_location
       destination_folder = File.absolute_path(local_path)
 
-      log "Downloading"
-      # Yielding the remote s3 files and doing a 2 pass filter
-      # as better performance than computing a diff of 2 complete directory listings
+      @log.info "Downloading"
+      
       local_files = local_files(local_path)
       remote_files(bucket_name, folders) do |s3|
         next if FileDiff::same_file? s3, local_files[s3[:key]]
         destination_file = File.join destination_folder, s3[:key]
-        log "#{s3[:file].public_url} => #{destination_file}"
+        @log.info "#{s3[:file].public_url} => #{destination_file}"
         s3_download s3, destination_file
       end
-      log "done"
+      @log.info "Done"
+    rescue Exception -> e
+      @log.error e
     end
 
   private
-
-    def log(message)
-      return puts message if ENV['DEBUG']
-      @log.info message
-    end
 
     def ensure_folder_exists(folder)
       FileUtils.mkdir_p(folder) unless File.directory?(folder)
@@ -116,6 +112,8 @@ module S3sync
         file:object }
     end
 
+    # Yielding the remote s3 files and doing a 2 pass filter
+    # as better performance than computing a diff of 2 complete directory listings
     def remote_files(bucket, folders)
       objects = @s3.buckets[bucket].objects.with_prefix(File.join(folders))
       objects.each do |object|
