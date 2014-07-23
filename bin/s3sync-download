@@ -6,3 +6,5 @@ local_path = ARGV[1]
 
 sync = S3sync::Syncer.new
 sync.download(s3_path, local_path)
+
+exit 1

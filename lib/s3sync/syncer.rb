@@ -19,7 +19,7 @@ module S3sync
       local_files = local_files(local_path)
       remote_files(bucket_name, folders) do |s3|
         source = local_files[s3[:key]]
-        local_files.delete s3[:key] if FileDiff::same_file? source, dest
+        local_files.delete s3[:key] if FileDiff::same_file? source, s3
       end
 
       local_files.each do |key,item|
