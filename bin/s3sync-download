@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 require 's3sync'
 
+s3_path = ARGV[0]
+local_path = ARGV[1]
+
 sync = S3sync::Syncer.new
-sync.download(ARGV[0], ARGV[1])
+sync.download(s3_path, local_path)

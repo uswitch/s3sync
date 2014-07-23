@@ -17,9 +17,9 @@ module S3sync
       # Yielding the remote s3 files and doing a 2 pass filter
       # as better performance than computing a diff of 2 complete directory listings
       local_files = local_files(local_path)
-      remote_files(bucket_name, folders) do |key,dest|
-        source = local_files[key]
-        local_files.delete key if FileDiff::same_file? source, dest
+      remote_files(bucket_name, folders) do |s3|
+        source = local_files[s3[:key]]
+        local_files.delete s3[:key] if FileDiff::same_file? source, dest
       end
 
       local_files.each do |key,item|
@@ -39,11 +39,11 @@ module S3sync
       # Yielding the remote s3 files and doing a 2 pass filter
       # as better performance than computing a diff of 2 complete directory listings
       local_files = local_files(local_path)
-      remote_files(bucket_name, folders) do |key,source|
-        next if FileDiff::same_file? source, local_files[key]
-        destination_file = File.join destination_folder, key
-        log "#{source[:file].public_url} => #{destination_file}"
-        s3_download source, destination_file
+      remote_files(bucket_name, folders) do |s3|
+        next if FileDiff::same_file? s3, local_files[s3[:key]]
+        destination_file = File.join destination_folder, s3[:key]
+        log "#{s3[:file].public_url} => #{destination_file}"
+        s3_download s3, destination_file
       end
       log "done"
     end
@@ -107,14 +107,21 @@ module S3sync
       results
     end
 
+    def remote_item(object, relative_path)
+      last_modified = Time.parse object.metadata['last_modified'] rescue 0
+
+      { key:File.join(relative_path), 
+        last_modified:last_modified, 
+        content_length:object.content_length, 
+        file:object }
+    end
+
     def remote_files(bucket, folders)
       objects = @s3.buckets[bucket].objects.with_prefix(File.join(folders))
       objects.each do |object|
-        relative_file_name = File.join(object.key.split(/\//).drop folders.length)
-        last_modified      = Time.parse object.metadata['last_modified'] rescue 0
-        content_length     = object.content_length rescue 0
-        item = { key:relative_file_name, last_modified:last_modified, content_length:content_length, file:object }
-        yield relative_file_name,item
+        relative_path = object.key.split(/\//).drop folders.length
+        next if object.content_length.nil? or object.content_length == 0 or relative_path.empty?
+        yield remote_item(object, relative_path)
       end
     end
 
