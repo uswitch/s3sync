@@ -7,7 +7,7 @@ module S3sync
     end
 
     def self.same_file?(source, dest)
-      return false unless dest
+      return false unless source and dest
       return false if content_length(dest) != content_length(source)
       return false unless last_modified(dest) >= last_modified(source)
       return true
