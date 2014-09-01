@@ -21,9 +21,13 @@ module S3sync
       end
 
       local_files.each do |key,item|
-        s3_key = File.join folders, key
-        @log.info "#{item[:file]} => s3://#{bucket_name}/#{s3_key}"
-        s3_upload item, bucket_name, s3_key
+        begin
+          s3_key = File.join folders, key
+          @log.info "#{item[:file]} => s3://#{bucket_name}/#{s3_key}"
+          s3_upload item, bucket_name, s3_key
+        rescue Exception => e
+          @log.error e
+        end
       end
       @log.info "Done"
     rescue Exception => e
@@ -39,9 +43,13 @@ module S3sync
       local_files = local_files(local_path)
       remote_files(bucket_name, folders) do |s3|
         next if FileDiff::same_file? s3, local_files[s3[:key]]
-        destination_file = File.join destination_folder, s3[:key]
-        @log.info "#{s3[:file].public_url} => #{destination_file}"
-        s3_download s3, destination_file
+        begin
+          destination_file = File.join destination_folder, s3[:key]
+          @log.info "#{s3[:file].public_url} => #{destination_file}"
+          s3_download s3, destination_file
+        rescue Exception => e
+          @log.error e
+        end
       end
       @log.info "Done"
     rescue Exception => e
@@ -49,6 +57,10 @@ module S3sync
     end
 
   private
+
+    def safe_encode(text)
+      text.force_encoding('ASCII-8BIT').encode('UTF-8', :invalid => :replace, :undef => :replace, :replace => '?')
+    end
 
     def ensure_folder_exists(folder)
       FileUtils.mkdir_p(folder) unless File.directory?(folder)
